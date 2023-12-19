@@ -1,0 +1,91 @@
+
+'''import certifi
+import ssl
+import socket
+
+def verify_ssl_certificate(hostname):
+    try:
+        context = ssl.create_default_context()
+
+        with socket.create_connection((hostname, 443)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                ssock.do_handshake()
+                cert = ssock.getpeercert()
+                print("Certificate is valid.")
+    except ssl.SSLCertVerificationError as e:
+        print(f"Certificate is not valid: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Take user input
+user_input = input("Enter the hostname to verify SSL certificate: ")
+verify_ssl_certificate(user_input)'''
+
+import ssl
+import socket
+import whois
+from urllib.parse import urlparse
+from datetime import datetime
+import tkinter as tk
+from tkinter import messagebox
+import DNS
+
+def is_phishing_domain(hostname):
+    try:
+        # SSL certificate check
+        context = ssl.create_default_context()
+        with socket.create_connection((hostname, 443)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                ssock.do_handshake()
+                cert = ssock.getpeercert()
+                print("SSL certificate is valid.")
+
+        # WHOIS information check
+        domain_info = whois.whois(hostname)
+        registration_date = domain_info.creation_date
+
+        if isinstance(registration_date, list):
+            registration_date = registration_date[0]
+
+        if registration_date:
+            days_since_creation = (datetime.now() - registration_date).days
+            if days_since_creation <= 30:
+                return True  # Likely a phishing domain
+
+        # DNS query to check domain reputation
+        request = DNS.DnsRequest(name=hostname, qtype='A')
+        response = DNS.DnsResult(request)
+
+        if response.header['status'] == 'NOERROR':
+            return False  # No DNS threat detected
+        else:
+            return True  # Potentially a phishing domain
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    return False  # Not a phishing domain (or could not be determined)
+
+def check_phishing_domain():
+    user_input = entry.get()
+    hostname = urlparse(user_input).hostname
+
+    if is_phishing_domain(hostname):
+        messagebox.showinfo("Result", "This might be a phishing domain.")
+    else:
+        messagebox.showinfo("Result", "This is not likely a phishing domain.")
+
+# GUI setup
+root = tk.Tk()
+root.title("Phishing Domain Checker")
+
+label = tk.Label(root, text="Enter a website URL:")
+label.pack(pady=10)
+
+entry = tk.Entry(root, width=40)
+entry.pack(pady=10)
+
+check_button = tk.Button(root, text="Check", command=check_phishing_domain)
+check_button.pack(pady=20)
+
+root.mainloop()
